@@ -1,42 +1,63 @@
 import axios from 'axios';
 
-const PINATA_API_KEY = 'f3bc203ae698944dc124';
-const PINATA_SECRET_KEY = '6bcd31c1a3be0a55c102b104f76c47d11c6ceffd30c4e74b1da6790269a35e1d';
+const PINATA_API_KEY = '974dc7ba82d68b9aee3e';
+const PINATA_API_SECRET = '66a96ef68883fd581c35848a612d510edd841e219d3bab4354c1550997440d14';
 
-export const uploadToPinata = async (imageBase64) => {
-  try {
-    // Convert Base64 to Blob
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    const blob = new Blob([buffer], { type: 'image/png' });
-    const file = new File([blob], 'certificate.png', { type: 'image/png' });
-
-    // Create FormData
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // Add metadata
-    const metadata = JSON.stringify({
-      name: 'Certificate',
-      keyvalues: {
-        date: new Date().toISOString()
-      }
-    });
-    formData.append('pinataMetadata', metadata);
-
-    // Upload to Pinata
-    const res = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
-      maxBodyLength: "Infinity",
-      headers: {
-        'pinata_api_key': PINATA_API_KEY,
-        'pinata_secret_api_key': PINATA_SECRET_KEY
-      }
+const pinJSONToIPFS = async (JSONBody) => {
+    const url = `https://api.pinata.cloud/pinning/pinJSONToIPFS`;
+    
+    const data = JSON.stringify({
+        pinataContent: JSONBody,
+        pinataOptions: {
+            cidVersion: 1
+        }
     });
 
-    console.log('Pinata response:', res.data);
-    return `ipfs://${res.data.IpfsHash}`;
-  } catch (error) {
-    console.error('Pinata upload error:', error.response?.data || error.message);
-    throw new Error('Failed to upload image to IPFS: ' + (error.response?.data?.message || error.message));
-  }
+    try {
+        const response = await axios.post(url, data, {
+            headers: {
+                'Content-Type': 'application/json',
+                'pinata_api_key': PINATA_API_KEY,
+                'pinata_secret_api_key': PINATA_API_SECRET
+            }
+        });
+        
+        return response.data.IpfsHash;
+    } catch (error) {
+        console.error("IPFS'e yükleme hatası:", error.response ? error.response.data : error);
+        throw new Error("IPFS'e yükleme başarısız: " + (error.response ? error.response.data.message : error.message));
+    }
+};
+
+export const uploadToPinata = async (noteData) => {
+    try {
+        const metadata = {
+            name: noteData.title,
+            description: noteData.content,
+            attributes: [
+                {
+                    trait_type: "Course",
+                    value: noteData.course
+                },
+                {
+                    trait_type: "Topic",
+                    value: noteData.topic
+                },
+                {
+                    trait_type: "Author",
+                    value: noteData.author
+                },
+                {
+                    trait_type: "Created",
+                    value: noteData.timestamp
+                }
+            ]
+        };
+
+        const ipfsHash = await pinJSONToIPFS(metadata);
+        return `ipfs://${ipfsHash}`;
+    } catch (error) {
+        console.error("Pinata yükleme hatası:", error);
+        throw error;
+    }
 }; 
