@@ -86,6 +86,7 @@ function App() {
             try {
               // NFT sahipliğini kontrol et
               const balance = await contract.methods.balanceOf(walletAddress, note.tokenId).call();
+              console.log('NFT sahipliği:', balance);
               // String olarak karşılaştır
               const hasToken = balance && balance !== '0';
               
