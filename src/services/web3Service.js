@@ -356,30 +356,59 @@ export const mintNote = async (tokenId, account) => {
 
         // Web3 ve contract kontrolü
         if (!web3 || !contract) {
+            console.log('Web3 veya kontrat başlatılıyor...');
             await initializeWeb3();
         }
 
+        // Kontrat bağlantısını detaylı kontrol
+        if (!contract || !contract.methods) {
+            console.error('Kontrat bağlantısı yok veya geçersiz');
+            throw new Error('Kontrat bağlantısı kurulamadı');
+        }
+
+        // Kontrat metodlarını kontrol et
+        console.log('Kontrat metodları:', Object.keys(contract.methods));
+        
         // Ağ kontrolü
         const chainId = await web3.eth.getChainId();
+        console.log('Mevcut Chain ID:', chainId);
         const expectedChainId = EDU_CHAIN_CONFIG.chainId.replace('0x', '');
+        console.log('Beklenen Chain ID:', expectedChainId);
+        
         if (chainId.toString(16) !== expectedChainId) {
+            console.log('Ağ değişikliği gerekiyor...');
             await switchToEduChain();
-            // Ağ değişikliği sonrası kısa bir bekleme
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
         // Not detaylarını al
+        console.log('Not detayları alınıyor... TokenId:', tokenId);
         let noteDetails;
         try {
-            noteDetails = await contract.methods.getNoteDetails(tokenId).call();
-            console.log('Not detayları:', noteDetails);
+            // Önce kontrat adresini kontrol et
+            console.log('Kontrat adresi:', contract.options.address);
+            
+            // getNoteDetails metodunu kontrol et
+            const getNoteDetailsMethod = contract.methods.getNoteDetails(tokenId);
+            if (!getNoteDetailsMethod) {
+                throw new Error('getNoteDetails metodu bulunamadı');
+            }
+            
+            // Metod çağrısını yap
+            noteDetails = await getNoteDetailsMethod.call({ from: account });
+            
+            if (!noteDetails) {
+                throw new Error('Not detayları boş döndü');
+            }
+            console.log('Not detayları başarıyla alındı:', JSON.stringify(noteDetails, null, 2));
         } catch (detailsError) {
-            console.error('Not detayları alınırken hata:', detailsError);
-            throw new Error('Not detayları alınamadı: ' + (detailsError.message || 'Bilinmeyen hata'));
-        }
-
-        if (!noteDetails) {
-            throw new Error('Not detayları alınamadı: Null değer döndü');
+            console.error('Not detayları alınırken hata:', {
+                error: detailsError,
+                message: detailsError.message,
+                code: detailsError.code,
+                data: detailsError.data
+            });
+            throw new Error(`Not detayları alınamadı: ${detailsError.message || 'Kontrat çağrısı başarısız'}`);
         }
 
         const price = noteDetails.price;
