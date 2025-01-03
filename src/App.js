@@ -56,9 +56,15 @@ function App() {
     const initContract = async () => {
       try {
         const contractInstance = await getContract();
+        console.log('Contract başarıyla başlatıldı:', contractInstance?.options?.address);
         setContract(contractInstance);
       } catch (error) {
         console.error('Contract yüklenirken hata:', error);
+        setSnackbar({
+          open: true,
+          message: 'Contract bağlantısı kurulamadı',
+          severity: 'error'
+        });
       }
     };
     initContract();
@@ -84,20 +90,13 @@ function App() {
         for (const note of allNotes) {
           if (note.tokenId) {
             try {
-              // NFT sahipliğini kontrol et
-              const balance = await contract.methods.balanceOf(walletAddress, note.tokenId).call();
-              console.log('NFT sahipliği:', balance);
-              // String olarak karşılaştır
-              const hasToken = balance && balance !== '0';
-              
-              // Not yaratıcısını kontrol et
-              const isCreator = note.author?.toLowerCase() === walletAddress?.toLowerCase();
-              
-              accessMap[note.tokenId] = hasToken || isCreator;
-              console.log(`Not ${note.tokenId} erişim durumu:`, { hasToken, isCreator, finalAccess: accessMap[note.tokenId] });
+              // Smart contract'taki hasNoteAccess fonksiyonunu kullan
+              const hasAccess = await contract.methods.hasNoteAccess(note.tokenId, walletAddress).call();
+              accessMap[note.tokenId] = hasAccess;
+              console.log(`Not ${note.tokenId} erişim durumu:`, { hasAccess });
             } catch (error) {
               console.error(`Not erişim kontrolü hatası ${note.tokenId}:`, error);
-              accessMap[note.tokenId] = note.author?.toLowerCase() === walletAddress?.toLowerCase();
+              accessMap[note.tokenId] = false;
             }
           }
         }
@@ -119,9 +118,10 @@ function App() {
 
   useEffect(() => {
     if (walletAddress || contract) {
+      console.log('Notlar yükleniyor...', { walletAddress, contractAddress: contract?.options?.address });
       loadNotesAndCheckAccess();
     }
-  }, [walletAddress, contract]); // contract değiştiğinde de çalışsın
+  }, [walletAddress, contract]);
 
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
@@ -416,40 +416,32 @@ function App() {
     });
   };
 
-  const renderNoteContent = (note) => {
-    if (!noteAccess[note.tokenId]) {
-      return (
-        <Box sx={{ textAlign: 'center', p: 2 }}>
-          <LockIcon sx={{ fontSize: 40, color: 'grey.500', mb: 1 }} />
-          <Typography variant="body1" color="text.secondary">
-            Bu içeriği görüntülemek için NFT'yi mint etmeniz gerekiyor
-          </Typography>
-          <Typography variant="body2" color="primary" sx={{ mt: 1 }}>
-            Fiyat: {note.price} EDU
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<TokenIcon />}
-            onClick={() => handleMintNFT(note)}
-            sx={{ mt: 2 }}
-          >
-            NFT'Yİ MINT ET
-          </Button>
-        </Box>
-      );
-    }
-
-    return (
-      <Box>
-        <Typography variant="body1">{note.content}</Typography>
-      </Box>
-    );
-  };
-
   const NoteCard = ({ note }) => {
     const hasAccess = noteAccess[note.tokenId] || note.author === walletAddress;
     const isAuthor = note.author === walletAddress;
+    const [mintInfo, setMintInfo] = useState({ currentSupply: 0, maxSupply: 0 });
+
+    useEffect(() => {
+        const getMintInfo = async () => {
+            if (!note?.tokenId || !contract) {
+                console.log('Contract veya tokenId eksik:', { contract, tokenId: note?.tokenId });
+                return;
+            }
+
+            try {
+                const details = await contract.methods.getNoteDetails(note.tokenId).call();
+                console.log('Mint bilgisi alındı:', details);
+                setMintInfo({
+                    currentSupply: Number(details.currentSupply),
+                    maxSupply: Number(details.maxSupply)
+                });
+            } catch (error) {
+                console.error('Mint bilgisi alınamadı:', error);
+            }
+        };
+
+        getMintInfo();
+    }, [note?.tokenId, contract]);
 
     const handleNoteClick = (event) => {
         if (!hasAccess) {
@@ -548,6 +540,9 @@ function App() {
                         <Typography variant="body2" color="primary" className="mt-1">
                             Fiyat: {Web3.utils.fromWei(note.priceInWei || '0', 'ether')} EDU
                         </Typography>
+                        <Typography variant="body2" color="text.secondary" className="mt-1">
+                            Mint Durumu: {mintInfo.currentSupply}/{mintInfo.maxSupply}
+                        </Typography>
                         <Button
                             variant="contained"
                             color="primary"
@@ -556,10 +551,10 @@ function App() {
                                 e.stopPropagation();
                                 handleMintNFT(note);
                             }}
-                            disabled={isNFTProcessing}
+                            disabled={isNFTProcessing || mintInfo.currentSupply >= mintInfo.maxSupply}
                             className="mt-3"
                         >
-                            NFT'yi Mint Et
+                            {mintInfo.currentSupply >= mintInfo.maxSupply ? 'Tükendi' : 'NFT\'yi Mint Et'}
                         </Button>
                     </Box>
                 )}
@@ -571,8 +566,14 @@ function App() {
                             {note.timestamp ? formatDate(note.timestamp) : 'Tarih belirtilmemiş'}
                         </Typography>
                     </Box>
-                    <Box className="flex items-center space-x-1">
-                        <TokenIcon fontSize="small" />
+                    <Box className="flex items-center space-x-2">
+                        <Box className="flex items-center space-x-1">
+                            <TokenIcon fontSize="small" />
+                            <Typography variant="caption">
+                                {mintInfo.currentSupply}/{mintInfo.maxSupply} Mint
+                            </Typography>
+                        </Box>
+                        <Typography variant="caption">•</Typography>
                         <Typography variant="caption">
                             NFT ID: {note.tokenId || 'ID bulunamadı'}
                         </Typography>
@@ -583,7 +584,33 @@ function App() {
     );
   };
 
-  const renderDialogContent = (note) => {
+  const NoteDialogContent = ({ note }) => {
+    const [mintInfo, setMintInfo] = useState({ currentSupply: 0, maxSupply: 0 });
+    
+    useEffect(() => {
+        const getMintInfo = async () => {
+            if (!note?.tokenId || !contract) {
+                console.log('Contract veya tokenId eksik:', { contract, tokenId: note?.tokenId });
+                return;
+            }
+
+            try {
+                const details = await contract.methods.getNoteDetails(note.tokenId).call();
+                console.log('Dialog mint bilgisi alındı:', details);
+                setMintInfo({
+                    currentSupply: Number(details.currentSupply),
+                    maxSupply: Number(details.maxSupply)
+                });
+            } catch (error) {
+                console.error('Dialog mint bilgisi alınamadı:', error);
+            }
+        };
+
+        getMintInfo();
+    }, [note?.tokenId, contract]);
+
+    if (!note) return null;
+
     const hasAccess = noteAccess[note.tokenId] || note.author === walletAddress;
 
     if (!hasAccess) {
@@ -596,15 +623,18 @@ function App() {
                 <Typography variant="body1" color="textSecondary" gutterBottom>
                     Fiyat: {Web3.utils.fromWei(note.priceInWei || '0', 'ether')} EDU
                 </Typography>
+                <Typography variant="body2" color="textSecondary" gutterBottom>
+                    Mint Durumu: {mintInfo.currentSupply}/{mintInfo.maxSupply}
+                </Typography>
                 <Button
                     variant="contained"
                     color="primary"
                     startIcon={<MonetizationOnIcon />}
                     onClick={() => handleMintNFT(note)}
-                    disabled={isNFTProcessing}
+                    disabled={isNFTProcessing || mintInfo.currentSupply >= mintInfo.maxSupply}
                     sx={{ mt: 2 }}
                 >
-                    NFT'yi Mint Et
+                    {mintInfo.currentSupply >= mintInfo.maxSupply ? 'Tükendi' : 'NFT\'yi Mint Et'}
                 </Button>
             </Box>
         );
@@ -612,6 +642,14 @@ function App() {
 
     return (
         <div className="p-6 bg-white rounded-lg">
+            <Box className="flex justify-between items-center mb-4">
+                <Typography variant="body2" color="textSecondary">
+                    Mint Durumu: {mintInfo.currentSupply}/{mintInfo.maxSupply}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                    NFT ID: {note.tokenId}
+                </Typography>
+            </Box>
             <Typography 
                 variant="body1" 
                 className="text-gray-600 whitespace-pre-wrap break-words text-lg"
@@ -640,6 +678,11 @@ function App() {
             </Typography>
         </div>
     );
+  };
+
+  const renderDialogContent = (note) => {
+    if (!note) return null;
+    return <NoteDialogContent note={note} />;
   };
 
   return (

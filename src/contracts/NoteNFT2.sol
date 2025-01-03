@@ -101,18 +101,21 @@ contract NoteNFT is ERC721URIStorage, Ownable {
     
     function hasNoteAccess(uint256 tokenId, address user) public view returns (bool) {
         Note memory note = notes[tokenId];
-        // Kontrol et: kullanıcı not'un yazarı mı?
+        // Yazar kontrolü
         if (note.author == user) {
             return true;
         }
         
-        // Kontrol et: kullanıcı token'a sahip mi?
-        uint256 balance = balanceOf(user);
-        if (balance > 0) {
-            return true;
+        // NFT sahiplik kontrolü - ownerOf kullanılmalı
+        try this.ownerOf(tokenId) returns (address owner) {
+            if (owner == user) {
+                return true;
+            }
+        } catch {
+            // Token mevcut değilse veya mint edilmemişse
         }
         
-        // Kontrol et: kullanıcının erişim hakkı var mı?
+        // Özel erişim kontrolü
         return hasAccess[tokenId][user];
     }
     

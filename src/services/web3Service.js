@@ -5,7 +5,7 @@ import NoteNFTContract from '../contracts/NoteNFT2.json';
 let web3;
 let contract;
 let provider;
-const contractAddress = "0x4BdfE6148412B5dF82358c661F840266bC3b0Fa9";
+const contractAddress = "0xfDe024484852aA774569F3a7Ce34EFC63083C644";
 
 // ABI'yi doğrudan al
 const NoteNFTAbi = Array.isArray(NoteNFTContract) ? NoteNFTContract : NoteNFTContract.abi;
@@ -536,25 +536,9 @@ export const mintNote = async (tokenId, account) => {
 
 export const hasNoteAccess = async (tokenId, account) => {
     try {
-        if (!tokenId || !account) {
-            console.error('TokenId veya account eksik');
-            return false;
-        }
-
-        const contract = await getContract();
-        if (!contract) {
-            console.error('Kontrat bağlantısı kurulamadı');
-            return false;
-        }
-        
-        try {
-            // Doğrudan kontratın hasNoteAccess fonksiyonunu kullan
-            const hasAccess = await contract.methods.hasNoteAccess(tokenId, account).call();
-            return hasAccess;
-        } catch (error) {
-            console.error('Kontrat çağrısı hatası:', error);
-            return false;
-        }
+        // Smart contract'taki hasNoteAccess fonksiyonunu çağır
+        const hasAccess = await contract.methods.hasNoteAccess(tokenId, account).call();
+        return hasAccess;
     } catch (error) {
         console.error('Not erişim kontrolü hatası:', error);
         return false;

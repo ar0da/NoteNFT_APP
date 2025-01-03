@@ -124,6 +124,16 @@ app.put('/api/notes/:tokenId', async (req, res) => {
     }
 });
 
+// Tüm notları sil (Geliştirme amaçlı)
+app.delete('/api/notes/clear', async (req, res) => {
+    try {
+        await Note.deleteMany({});
+        res.json({ message: 'Tüm notlar başarıyla silindi' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server ${PORT} portunda çalışıyor`);
