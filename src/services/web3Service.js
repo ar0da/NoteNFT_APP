@@ -170,7 +170,7 @@ export const connectWallet = async () => {
         if (!web3) {
             const initialized = await initWeb3();
             if (!initialized) {
-                return { success: false, error: "Web3 başlatılamadı" };
+                return { success: false, error: "Web3 initialization failed" };
             }
         }
 
@@ -178,54 +178,54 @@ export const connectWallet = async () => {
         const accounts = await web3.eth.getAccounts();
         
         if (accounts.length === 0) {
-            return { success: false, error: "Cüzdan bağlanamadı" };
+            return { success: false, error: "Could not connect to wallet" };
         }
 
         return { success: true, address: accounts[0] };
     } catch (error) {
-        console.error("Cüzdan bağlantı hatası:", error);
+        console.error("Wallet connection error:", error);
         return { success: false, error: error.message };
     }
 };
 
 const formatError = (error) => {
-    console.error('Ham hata:', error);
-    console.error('Hata stack:', error.stack);
-    console.error('Hata detayları:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    console.error('Raw error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     
     if (typeof error === 'object' && error !== null) {
         if (error.code === 4001) {
-            return new Error('İşlem kullanıcı tarafından reddedildi');
+            return new Error('Transaction rejected by user');
         }
         
         if (error.message) {
             if (error.message.includes('Internal JSON-RPC error')) {
                 return new Error(
-                    'Ağ bağlantısı hatası. Lütfen şu adımları deneyin:\n' +
-                    '1. MetaMask\'ı kapatıp açın\n' +
-                    '2. Sayfayı yenileyin\n' +
-                    '3. EDU Chain ağına bağlı olduğunuzdan emin olun\n' +
-                    '4. Cüzdanınızda yeterli EDU token olduğundan emin olun'
+                    'Network connection error. Please try the following steps:\n' +
+                    '1. Restart MetaMask\n' +
+                    '2. Refresh the page\n' +
+                    '3. Make sure you are connected to EDU Chain network\n' +
+                    '4. Make sure you have enough EDU tokens in your wallet'
                 );
             }
             
             if (error.message.includes('insufficient funds')) {
-                return new Error('Yetersiz bakiye: İşlem için yeterli EDU token\'ınız yok');
+                return new Error('Insufficient balance: Not enough EDU tokens for transaction');
             }
 
             if (error.message.includes('nonce too low')) {
-                return new Error('İşlem sırası hatası: Lütfen sayfayı yenileyip tekrar deneyin');
+                return new Error('Transaction sequence error: Please refresh the page and try again');
             }
 
-            return new Error(`İşlem hatası: ${error.message}`);
+            return new Error(`Transaction error: ${error.message}`);
         }
         
         if (error.toString) {
-            return new Error(`İşlem hatası: ${error.toString()}`);
+            return new Error(`Transaction error: ${error.toString()}`);
         }
     }
     
-    return new Error('Bilinmeyen bir hata oluştu');
+    return new Error('An unknown error occurred');
 };
 
 export const getContract = async () => {
@@ -310,7 +310,7 @@ export const createNote = async (tokenURI, contentHash, maxSupply, price, accoun
 
         return result;
     } catch (error) {
-        console.error('Not oluşturma detaylı hata:', {
+        console.error('Note creation detailed error:', {
             error: error,
             message: error.message,
             code: error.code,
@@ -321,30 +321,30 @@ export const createNote = async (tokenURI, contentHash, maxSupply, price, accoun
         if (typeof error === 'object' && error !== null) {
             if (error.message) {
                 if (error.message.includes('insufficient funds')) {
-                    throw new Error('Yetersiz bakiye: İşlem için yeterli EDU token\'ınız yok');
+                    throw new Error('Insufficient balance: Not enough EDU tokens for transaction');
                 }
                 
                 if (error.message.includes('gas required exceeds allowance')) {
-                    throw new Error('Gas limiti aşıldı: Lütfen daha düşük değerler deneyin');
+                    throw new Error('Gas limit exceeded: Please try lower values');
                 }
                 
                 if (error.message.includes('execution reverted')) {
-                    throw new Error('İşlem geri alındı: ' + (error.reason || error.data || 'Kontrat hatası'));
+                    throw new Error('Transaction reverted: ' + (error.reason || error.data || 'Contract error'));
                 }
 
                 if (error.message.includes('transaction underpriced')) {
-                    throw new Error('İşlem fiyatı çok düşük: Lütfen gas fiyatını artırın');
+                    throw new Error('Transaction underpriced: Please increase gas price');
                 }
 
-                throw new Error('İşlem hatası: ' + error.message);
+                throw new Error('Transaction error: ' + error.message);
             }
 
             if (error.code) {
-                throw new Error('İşlem kodu hatası: ' + error.code);
+                throw new Error('Transaction code error: ' + error.code);
             }
         }
         
-        throw new Error('Bilinmeyen bir hata oluştu. Lütfen console\'u kontrol edin.');
+        throw new Error('An unknown error occurred. Please check console.');
     }
 };
 
@@ -480,10 +480,10 @@ export const mintNote = async (tokenId, account) => {
         console.log('Mint işlemi sonucu:', result);
         return { success: true, transaction: result };
     } catch (error) {
-        console.error('NFT mint hatası:', error);
+        console.error('NFT mint error:', error);
         
         // Hata detaylarını logla
-        console.error('Hata detayları:', {
+        console.error('Error details:', {
             error: error,
             type: typeof error,
             message: error?.message,
@@ -496,17 +496,17 @@ export const mintNote = async (tokenId, account) => {
         if (error.code) {
             switch (error.code) {
                 case 4001:
-                    throw new Error('İşlem kullanıcı tarafından reddedildi');
+                    throw new Error('Transaction rejected by user');
                 case -32603:
                     if (error.data?.message?.includes('insufficient funds')) {
-                        throw new Error('Yetersiz bakiye: İşlem için yeterli EDU token\'ınız yok');
+                        throw new Error('Insufficient balance: Not enough EDU tokens for transaction');
                     }
                     if (error.data?.message?.includes('Max supply reached')) {
-                        throw new Error('Bu not için maksimum mint sayısına ulaşıldı');
+                        throw new Error('Maximum mint count reached for this note');
                     }
-                    throw new Error('İşlem başarısız: ' + (error.data?.message || error.message || 'Bilinmeyen hata'));
+                    throw new Error('Transaction failed: ' + (error.data?.message || error.message || 'Unknown error'));
                 default:
-                    throw new Error('İşlem hatası: ' + (error.message || JSON.stringify(error)));
+                    throw new Error('Transaction error: ' + (error.message || JSON.stringify(error)));
             }
         }
 
@@ -514,33 +514,33 @@ export const mintNote = async (tokenId, account) => {
         const errorMessage = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
         
         if (errorMessage.includes('insufficient funds')) {
-            throw new Error('Yetersiz bakiye: İşlem için yeterli EDU token\'ınız yok');
+            throw new Error('Insufficient balance: Not enough EDU tokens for transaction');
         } 
         if (errorMessage.includes('User denied') || errorMessage.includes('user rejected')) {
-            throw new Error('İşlem kullanıcı tarafından reddedildi');
+            throw new Error('Transaction rejected by user');
         } 
         if (errorMessage.includes('Max supply reached')) {
-            throw new Error('Bu not için maksimum mint sayısına ulaşıldı');
+            throw new Error('Maximum mint count reached for this note');
         }
         if (errorMessage.includes('execution reverted')) {
-            throw new Error('İşlem geri alındı: ' + errorMessage);
+            throw new Error('Transaction reverted: ' + errorMessage);
         }
         if (errorMessage.includes('nonce too low')) {
-            throw new Error('İşlem sırası hatası: Lütfen sayfayı yenileyip tekrar deneyin');
+            throw new Error('Transaction sequence error: Please refresh the page and try again');
         }
         
         // Genel hata durumu
-        throw new Error('Mint işlemi başarısız: ' + (typeof error === 'object' ? JSON.stringify(error) : errorMessage));
+        throw new Error('Mint operation failed: ' + (typeof error === 'object' ? JSON.stringify(error) : errorMessage));
     }
 };
 
 export const hasNoteAccess = async (tokenId, account) => {
     try {
-        // Smart contract'taki hasNoteAccess fonksiyonunu çağır
+        // Call hasNoteAccess function in smart contract
         const hasAccess = await contract.methods.hasNoteAccess(tokenId, account).call();
         return hasAccess;
     } catch (error) {
-        console.error('Not erişim kontrolü hatası:', error);
+        console.error('Note access check error:', error);
         return false;
     }
 };
@@ -572,19 +572,19 @@ export const toggleNoteActive = async (tokenId, account) => {
 export const updateNotePrice = async (tokenId, newPrice, account) => {
     try {
         if (!tokenId || !newPrice || !account) {
-            throw new Error('Gerekli parametreler eksik: tokenId, newPrice ve account gerekli');
+            throw new Error('Missing required parameters: tokenId, newPrice, and account are required');
         }
 
-        // Web3 ve contract kontrolü
+        // Web3 and contract check
         if (!web3 || !contract) {
             await initializeWeb3();
         }
 
-        // Gas tahminini yap
+        // Gas estimation
         const gasEstimate = await contract.methods.updateNotePrice(tokenId, newPrice)
             .estimateGas({ from: account });
 
-        // Gas hesaplamaları
+        // Gas calculations
         const gasLimit = Math.min(Math.ceil(Number(gasEstimate) * 1.1), 3000000);
         const currentGasPrice = await web3.eth.getGasPrice();
         const gasPrice = Math.max(
@@ -592,7 +592,7 @@ export const updateNotePrice = async (tokenId, newPrice, account) => {
             Number(BASE_GAS_PRICE)
         ).toString();
 
-        // İşlemi gönder
+        // Send transaction
         const result = await contract.methods.updateNotePrice(tokenId, newPrice)
             .send({
                 from: account,
@@ -602,7 +602,7 @@ export const updateNotePrice = async (tokenId, newPrice, account) => {
 
         return { success: true, transaction: result };
     } catch (error) {
-        console.error('Fiyat güncelleme hatası:', error);
+        console.error('Price update error:', error);
         throw formatError(error);
     }
 }; 

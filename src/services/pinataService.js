@@ -24,8 +24,8 @@ const pinJSONToIPFS = async (JSONBody) => {
         
         return response.data.IpfsHash;
     } catch (error) {
-        console.error("IPFS'e yükleme hatası:", error.response ? error.response.data : error);
-        throw new Error("IPFS'e yükleme başarısız: " + (error.response ? error.response.data.message : error.message));
+        console.error("Error uploading to IPFS:", error.response ? error.response.data : error);
+        throw new Error("IPFS upload failed: " + (error.response ? error.response.data.message : error.message));
     }
 };
 
@@ -57,7 +57,7 @@ export const uploadToPinata = async (noteData) => {
         const ipfsHash = await pinJSONToIPFS(metadata);
         return `ipfs://${ipfsHash}`;
     } catch (error) {
-        console.error("Pinata yükleme hatası:", error);
+        console.error("Pinata upload error:", error);
         throw error;
     }
 }; 

@@ -10,27 +10,27 @@ const api = axios.create({
   withCredentials: true
 });
 
-// İstek interceptor'ı
+// Request interceptor
 api.interceptors.request.use(
   (config) => {
-    console.log('API İsteği:', config.url);
+    console.log('API Request:', config.url);
     return config;
   },
   (error) => {
-    console.error('API İstek Hatası:', error);
+    console.error('API Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Yanıt interceptor'ı
+// Response interceptor
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    console.error('API Yanıt Hatası:', error);
+    console.error('API Response Error:', error);
     if (error.response) {
-      console.error('Hata Detayı:', error.response.data);
+      console.error('Error Details:', error.response.data);
     }
     return Promise.reject(error);
   }

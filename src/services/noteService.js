@@ -8,7 +8,7 @@ export const noteService = {
             const response = await axios.get(`${API_URL}/notes`);
             return response.data;
         } catch (error) {
-            console.error('Notlar getirilirken hata:', error);
+            console.error('Error fetching notes:', error);
             throw error;
         }
     },
@@ -18,7 +18,7 @@ export const noteService = {
             const response = await axios.post(`${API_URL}/notes`, noteData);
             return response.data;
         } catch (error) {
-            console.error('Not oluşturulurken hata:', error);
+            console.error('Error creating note:', error);
             throw error;
         }
     },
@@ -28,7 +28,7 @@ export const noteService = {
             const response = await axios.get(`${API_URL}/notes/${tokenId}`);
             return response.data;
         } catch (error) {
-            console.error('Not detayları getirilirken hata:', error);
+            console.error('Error fetching note details:', error);
             throw error;
         }
     },
@@ -38,7 +38,25 @@ export const noteService = {
             const response = await axios.put(`${API_URL}/notes/${tokenId}`, noteData);
             return response.data;
         } catch (error) {
-            console.error('Not güncellenirken hata:', error);
+            console.error('Error updating note:', error);
+            throw error;
+        }
+    },
+
+    deleteNote: async (tokenId) => {
+        try {
+            console.log('Attempting to delete note with tokenId:', tokenId);
+            console.log('TokenId type:', typeof tokenId);
+            const response = await axios.delete(`${API_URL}/notes/${tokenId}`);
+            console.log('Delete response:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Error deleting note:', error);
+            console.error('Error details:', {
+                tokenId,
+                errorMessage: error.message,
+                response: error.response?.data
+            });
             throw error;
         }
     }
